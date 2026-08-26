@@ -7,7 +7,7 @@ const getMembers = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      count: members.length,\
+      count: members.length,
       data: members,
     });
   } catch (error) {
