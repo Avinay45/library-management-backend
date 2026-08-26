@@ -1,4 +1,4 @@
-const Member = require("../models/member");
+const Member = require("../models/Member");
 
 // GET /api/members
 const getMembers = async (req, res) => {
@@ -7,7 +7,7 @@ const getMembers = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      count: members.length,
+      count: members.length,\
       data: members,
     });
   } catch (error) {
@@ -130,8 +130,7 @@ const updateMember = async (req, res) => {
 
     member.name = name ?? member.name;
     member.phone = phone ?? member.phone;
-    member.membershipDate =
-      membershipDate ?? member.membershipDate;
+    member.membershipDate = membershipDate ?? member.membershipDate;
 
     const updatedMember = await member.save();
 
