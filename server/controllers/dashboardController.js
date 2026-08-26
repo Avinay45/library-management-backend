@@ -1,5 +1,5 @@
 const Book = require("../models/Book");
-const Member = require("../models/member");
+const Member = require("../models/Member");
 const Transaction = require("../models/Transaction");
 
 // GET dashboard statistics

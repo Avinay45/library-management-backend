@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Transaction = require("../models/Transaction");
 const Book = require("../models/Book");
-const Member = require("../models/member");
+const Member = require("../models/Member");
 
 // GET all transactions
 const getTransactions = async (req, res) => {
