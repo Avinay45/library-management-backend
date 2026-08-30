@@ -12,11 +12,21 @@ const transactionRoutes = require("./routes/transactionRoutes");
 
 const app = express();
 
-const parseAllowedOrigins = (value) =>
-  (value || "")
-    .split(",")
-    .map((origin) => origin.trim().replace(/\/$/, ""))
-    .filter(Boolean);
+/* -------------------------------------------------------------------------- */
+/* CORS                                                                       */
+/* -------------------------------------------------------------------------- */
+
+const normalizeOrigin = (origin) => {
+  if (!origin) return "";
+
+  return origin.trim().replace(/\/+$/, "");
+};
+
+const parseAllowedOrigins = (value) => {
+  if (!value) return [];
+
+  return value.split(",").map(normalizeOrigin).filter(Boolean);
+};
 
 const isAllowedVercelPreview = (origin) => {
   if (process.env.ALLOW_VERCEL_PREVIEWS !== "true") {
@@ -24,49 +34,76 @@ const isAllowedVercelPreview = (origin) => {
   }
 
   try {
-    const { hostname, protocol } = new URL(origin);
+    const url = new URL(origin);
 
-    return protocol === "https:" && hostname.endsWith(".vercel.app");
+    return url.protocol === "https:" && url.hostname.endsWith(".vercel.app");
   } catch {
     return false;
   }
 };
 
-const allowedOrigins = [
+const allowedOrigins = new Set([
   ...parseAllowedOrigins(process.env.FRONTEND_URL),
   ...parseAllowedOrigins(process.env.FRONTEND_URLS),
+
+  // Local development
   "http://localhost:5173",
   "http://localhost:3000",
-].filter(Boolean);
+]);
 
 const corsOptions = {
   origin(origin, callback) {
-    const normalizedOrigin = origin?.replace(/\/$/, "");
+    // Allow requests without an Origin header.
+    // This includes direct browser navigation, health checks,
+    // Postman, server-to-server requests, etc.
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const normalizedOrigin = normalizeOrigin(origin);
 
     if (
-      !origin ||
-      allowedOrigins.includes(normalizedOrigin) ||
+      allowedOrigins.has(normalizedOrigin) ||
       isAllowedVercelPreview(normalizedOrigin)
     ) {
       return callback(null, true);
     }
 
+    console.warn(`CORS blocked origin: ${origin}`);
+
     return callback(new Error("Not allowed by CORS"));
   },
+
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+
+  credentials: false,
+
   optionsSuccessStatus: 204,
 };
 
-// Middleware
-app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
-app.use(express.json());
+/* -------------------------------------------------------------------------- */
+/* Middleware                                                                 */
+/* -------------------------------------------------------------------------- */
 
-// Health check
+app.use(cors(corsOptions));
+
+app.options(/.*/, cors(corsOptions));
+
+app.use(express.json({ limit: "1mb" }));
+
+/* -------------------------------------------------------------------------- */
+/* Health                                                                     */
+/* -------------------------------------------------------------------------- */
+
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
     message: "Library Management API is running",
-    databaseConfigured: Boolean(process.env.MONGODB_URI || process.env.MONGO_URI),
+    databaseConfigured: Boolean(
+      process.env.MONGODB_URI || process.env.MONGO_URI,
+    ),
   });
 });
 
@@ -94,7 +131,10 @@ app.get("/api/health/db", async (req, res) => {
   }
 });
 
-// Database connection middleware
+/* -------------------------------------------------------------------------- */
+/* Database middleware                                                        */
+/* -------------------------------------------------------------------------- */
+
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -115,13 +155,19 @@ app.use(async (req, res, next) => {
   }
 });
 
-// API Routes
+/* -------------------------------------------------------------------------- */
+/* API Routes                                                                 */
+/* -------------------------------------------------------------------------- */
+
 app.use("/api/books", bookRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/transactions", transactionRoutes);
 
-// Fallback
+/* -------------------------------------------------------------------------- */
+/* 404                                                                        */
+/* -------------------------------------------------------------------------- */
+
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -129,6 +175,10 @@ app.use((req, res) => {
     path: req.originalUrl,
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* Error Handler                                                              */
+/* -------------------------------------------------------------------------- */
 
 app.use((error, req, res, next) => {
   if (error.message === "Not allowed by CORS") {
@@ -138,7 +188,7 @@ app.use((error, req, res, next) => {
     });
   }
 
-  console.error("Unhandled server error:", error.message);
+  console.error("Unhandled server error:", error);
 
   return res.status(500).json({
     success: false,
@@ -146,10 +196,16 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Export Express app for Vercel
+/* -------------------------------------------------------------------------- */
+/* Vercel                                                                    */
+/* -------------------------------------------------------------------------- */
+
 module.exports = app;
 
-// Local development
+/* -------------------------------------------------------------------------- */
+/* Local Development                                                          */
+/* -------------------------------------------------------------------------- */
+
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
 

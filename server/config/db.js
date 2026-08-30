@@ -5,11 +5,17 @@ let connectionPromise = null;
 const getMongoUri = () => {
   const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
 
-  return uri?.trim().replace(/^["']|["']$/g, "");
+  if (!uri) {
+    return null;
+  }
+
+  return uri.trim().replace(/^[\"']|[\"']$/g, "");
 };
 
 const getDatabaseError = (error) => {
-  if (error.message.includes("MONGODB_URI is not configured")) {
+  const message = error?.message || "";
+
+  if (message.includes("MONGODB_URI is not configured")) {
     return {
       code: "MISSING_MONGODB_URI",
       message: "MONGODB_URI is not configured in the backend deployment.",
@@ -17,31 +23,35 @@ const getDatabaseError = (error) => {
   }
 
   if (
-    error.message.includes("bad auth") ||
-    error.message.includes("Authentication failed")
+    message.includes("bad auth") ||
+    message.includes("Authentication failed") ||
+    message.includes("authentication failed")
   ) {
     return {
       code: "MONGODB_AUTH_FAILED",
-      message: "MongoDB authentication failed. Check the database username and password in MONGODB_URI.",
+      message:
+        "MongoDB authentication failed. Check the database username and password in MONGODB_URI.",
     };
   }
 
   if (
-    error.message.includes("querySrv") ||
-    error.message.includes("ENOTFOUND") ||
-    error.message.includes("ETIMEOUT") ||
-    error.message.includes("Server selection timed out")
+    message.includes("querySrv") ||
+    message.includes("ENOTFOUND") ||
+    message.includes("ETIMEOUT") ||
+    message.includes("Server selection timed out") ||
+    message.includes("ECONNREFUSED")
   ) {
     return {
       code: "MONGODB_NETWORK_FAILED",
       message:
-        "MongoDB network connection failed. In Atlas, allow access from 0.0.0.0/0 for Vercel serverless deployments and verify the cluster host.",
+        "MongoDB network connection failed. Verify the Atlas cluster hostname, Network Access rules, and MONGODB_URI.",
     };
   }
 
   return {
     code: "MONGODB_CONNECTION_FAILED",
-    message: "Database connection failed. Check the MongoDB Atlas URI and Network Access settings.",
+    message:
+      "Database connection failed. Check the MongoDB Atlas URI, database user, and Network Access settings.",
   };
 };
 
@@ -63,15 +73,21 @@ const connectDB = async () => {
   connectionPromise = mongoose
     .connect(mongoUri, {
       serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
       maxPoolSize: 10,
+      maxIdleTimeMS: 30000,
     })
     .then((connection) => {
       console.log(`MongoDB connected: ${connection.connection.host}`);
+
       return connection.connection;
     })
     .catch((error) => {
       connectionPromise = null;
+
       console.error("Error connecting to MongoDB:", error.message);
+
       throw error;
     });
 
