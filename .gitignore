@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+npm-debug.log*
+
+.vercel/
+
+# Frontend is deployed from its own repository.
+client/
