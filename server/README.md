@@ -21,4 +21,6 @@ Add these environment variables:
 - `FRONTEND_URLS`: comma-separated allowed frontend origins, for example `https://your-frontend.vercel.app`
 - `ALLOW_VERCEL_PREVIEWS`: `true` if preview deployments should be allowed by CORS
 
+Turn off Vercel Deployment Protection / SSO for this API project. If `/api/health` redirects to `vercel.com/sso-api`, the frontend cannot call the backend and will show a CORS or unavailable-backend message.
+
 The API is served from `/api`, for example `/api/health`, `/api/books`, `/api/members`, `/api/dashboard`, and `/api/transactions`.
