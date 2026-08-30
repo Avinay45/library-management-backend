@@ -11,15 +11,42 @@ const transactionRoutes = require("./routes/transactionRoutes");
 
 const app = express();
 
+const parseAllowedOrigins = (value) =>
+  (value || "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+const isAllowedVercelPreview = (origin) => {
+  if (process.env.ALLOW_VERCEL_PREVIEWS !== "true") {
+    return false;
+  }
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+
+    return protocol === "https:" && hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+};
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  ...parseAllowedOrigins(process.env.FRONTEND_URL),
+  ...parseAllowedOrigins(process.env.FRONTEND_URLS),
   "http://localhost:5173",
   "http://localhost:3000",
 ].filter(Boolean);
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    const normalizedOrigin = origin?.replace(/\/$/, "");
+
+    if (
+      !origin ||
+      allowedOrigins.includes(normalizedOrigin) ||
+      isAllowedVercelPreview(normalizedOrigin)
+    ) {
       return callback(null, true);
     }
 
