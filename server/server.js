@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
+const { getDatabaseError } = require("./config/db");
 
 const bookRoutes = require("./routes/bookRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
@@ -65,6 +66,7 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
     message: "Library Management API is running",
+    databaseConfigured: Boolean(process.env.MONGODB_URI || process.env.MONGO_URI),
   });
 });
 
@@ -77,11 +79,17 @@ app.get("/api/health/db", async (req, res) => {
       message: "Database connection is healthy",
     });
   } catch (error) {
-    console.error("Database health check failed:", error.message);
+    const databaseError = getDatabaseError(error);
+
+    console.error("Database health check failed:", {
+      code: databaseError.code,
+      message: error.message,
+    });
 
     res.status(503).json({
       success: false,
-      message: "Database connection failed",
+      message: databaseError.message,
+      code: databaseError.code,
     });
   }
 });
@@ -92,11 +100,17 @@ app.use(async (req, res, next) => {
     await connectDB();
     next();
   } catch (error) {
-    console.error("Database connection failed:", error.message);
+    const databaseError = getDatabaseError(error);
+
+    console.error("Database connection failed:", {
+      code: databaseError.code,
+      message: error.message,
+    });
 
     res.status(503).json({
       success: false,
-      message: "Database connection failed",
+      message: databaseError.message,
+      code: databaseError.code,
     });
   }
 });
